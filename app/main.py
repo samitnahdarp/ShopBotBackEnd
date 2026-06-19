@@ -1,12 +1,15 @@
 from fastapi import FastAPI
+from contextlib import asynccontextmanager
 from app.routers import search, status
-from app.schema import create_schema
-
-create_schema()
-
-app = FastAPI()
+from app.database import pool
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    pool.open()
+    yield
+    pool.close()
+app = FastAPI(lifespan=lifespan)
 
 
 app.include_router(search.router)

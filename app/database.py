@@ -1,24 +1,23 @@
-import psycopg
+from psycopg_pool import ConnectionPool
 from app.core.settings import settings
 from psycopg.errors import OperationalError
 
+
+pool = ConnectionPool(
+    conninfo=(
+        f"dbname={settings.db_name} "
+        f"user={settings.db_user} "
+        f"password={settings.db_password} "
+        f"host={settings.db_host} "
+        f"port={settings.db_port}"
+    ),
+    min_size=1,
+    max_size=5,
+    timeout=30,
+    open=False,
+)
+
 def get_db_connection():
-    conn = None
-    try:
-        conn = psycopg.connect(
-            dbname=settings.db_name,
-            user=settings.db_user,
-            password=settings.db_password,
-            host=settings.db_host,
-            port=settings.db_port,
-        )
+    with pool.connection() as conn:
         yield conn
-
-    except OperationalError as e:
-        print("Database connection failed:", e)
-        raise
-
-    finally:
-        if conn is not None:
-            conn.close()
 

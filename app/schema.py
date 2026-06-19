@@ -1,6 +1,5 @@
 import psycopg
 from app.core.settings import settings
-from contextlib import closing
 
 def create_schema():
     conn = None
@@ -12,7 +11,6 @@ def create_schema():
             host=settings.db_host,
             port=settings.db_port,
         )
-
         with conn.cursor() as cur:
             cur.execute("""
             SET search_path TO app;
@@ -57,7 +55,7 @@ def create_schema():
                 website_id INT NOT NULL REFERENCES website(website_id),
                 name VARCHAR(255),
                 rating FLOAT,
-                price NUMERIC(10,2),
+                price MONEY,
                 description TEXT,
                 link TEXT,
                 image TEXT
