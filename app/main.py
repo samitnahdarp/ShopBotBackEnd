@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
-from app.routers import search, status
+from app.routers import search
 from app.database import pool
 
 
@@ -13,4 +13,4 @@ app = FastAPI(lifespan=lifespan)
 
 
 app.include_router(search.router)
-app.include_router(status.router)
+# app.include_router(get_token.router)
