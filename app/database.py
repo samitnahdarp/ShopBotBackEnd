@@ -1,7 +1,5 @@
 from psycopg_pool import ConnectionPool
 from app.core.settings import settings
-from psycopg.errors import OperationalError
-
 
 pool = ConnectionPool(
     conninfo=(

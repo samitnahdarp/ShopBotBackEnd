@@ -21,18 +21,28 @@ for sorting by rating in descending order, use:
 "sort": [{ "rating": -1 }]
 """
 
-import aiohttp
 import asyncio
 import time
 import random
-from app.core.models import Product
+import httpx
+from app.schemas.models import Product
 from typing import Optional, Union, List
 
 _last_request = 0
 _lock = asyncio.Lock()
 
-async def hukut_scraper(Product: str) -> Optional[Union[Product, List[Product]]] :
+
+
+async def hukut_scraper(product: str,limit: int=20, offset: int=0, order: str="price-asc") -> Optional[Union[Product, List[Product]]] :
+    order=order.lower()
     global _last_request
+    order_options = {
+        "price-asc": [{"price": 1}],
+        "price-desc": [{"price": -1}],
+        "relevance": [{"relevance": 0}],
+        "rating-asc": [{"rating": 1}],
+        "rating-desc": [{"rating": -1}]
+    }
     async with _lock:
         now = time.monotonic()
         delay = 2 + abs(random.random()) - (now - _last_request)
@@ -42,25 +52,23 @@ async def hukut_scraper(Product: str) -> Optional[Union[Product, List[Product]]]
 
         _last_request = time.monotonic()
 
-    async with aiohttp.ClientSession() as session:
+    async with httpx.AsyncClient(timeout=30,) as session:
         url = "https://hukut.com/api-server/v1/Product/list-elastic"
-
         payload = {
-            "searchText": Product,
-            "pagination": {"limit": 20, "offset": 0},
-            "sort": [{"relevance": 0}]
+            "searchText": product,
+            "pagination": {"limit": limit, "offset": offset},
+            "sort": order_options.get(order) 
         }
-
         headers = {
             "Content-Type": "application/json",
             "User-Agent": "Mozilla/5.0"
         }
+        response = await session.post(url, json=payload, headers=headers)
+        response.raise_for_status()
+        data = response.json()
+        return hukut_parser(data)
 
-        async with session.post(url, json=payload, headers=headers) as response:
-            data = await response.json()
-            return get_hukut_Products(data)
-
-def get_hukut_Products(data: dict,) -> Optional[Union[Product, List[Product]]]:
+def hukut_parser(data: dict,) -> Optional[Union[Product, List[Product]]]:
     Products: List[Product] = []
 
     for item in data.get("data", {}).get("rows", []):
@@ -76,7 +84,7 @@ def get_hukut_Products(data: dict,) -> Optional[Union[Product, List[Product]]]:
 
         image = item.get("image", {}).get("cdn") or ""
 
-        description = name  # no separate description field in source
+        description = name 
 
         Products.append(
             Product(

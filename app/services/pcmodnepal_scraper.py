@@ -22,54 +22,51 @@ Sitemap: https://pcmodnepal.com/sitemap_index.xml
 
 from enum import Enum
 from bs4 import BeautifulSoup
-import aiohttp
 import asyncio
 import time
 import random
-from app.make_request import send_request
-from app.core.models import Product
+from app.hybrid_http_client import send_request
+from app.schemas.models import Product
 from typing import Optional, Union, List
 import re
 
-
-class OrderBy(Enum):
-    popularity = "popularity"
-    rating = "rating"
-    price_asc = "price"
-    price_desc = "price-desc"
-    relevance = "relevance"
+    
 
 _last_request = 0
 _lock = asyncio.Lock()
 
-async def pcmodnepal_scraper(Product: str) -> Optional[Union[Product,List[Product]]]:
+async def pcmodnepal_scraper(product: str,page_number: int=1,order: str="price-asc") -> Optional[Union[Product,List[Product]]]:
     global _last_request
+    order=order.lower()
+    order_option={
+        "price-asc" : "price",
+        "price-desc" : "price-desc",
+        "relevance" : "relevance",
+        "rating-asc" : "relevance",
+        "rating-desc" : "relevance"
+
+    }
     async with _lock:
         now = time.monotonic()
         delay = 2 + abs(random.random()) - (now - _last_request)
         if delay > 0:
             await asyncio.sleep(delay)
         _last_request = time.monotonic()
-    
-    page_number = 1
     url=f"https://pcmodnepal.com/shop/page/{page_number}/"
     params={
-        "orderby": OrderBy.relevance.value,
+        "orderby": order_option.get(order),
         "shop_view": "list",
-        "s": Product,
+        "s": product,
         "post_type": "Product",
         "per_page": "24"
     }
     html_file=await send_request(url=url, method="GET", params=params)
-    with open("pcmodnepal.html",'w',encoding="utf-8") as f:
-        f.write(str(html_file))
     return pcmodnepal_parser(html_content=html_file)
         
 def pcmodnepal_parser(html_content: str) -> Optional[Union[Product, List[Product]]]:
     soup = BeautifulSoup(html_content, "html.parser")
     products: List[Product] = []
 
-    # WooCommerce / Woodmart theme product item containers
     product_elements = soup.find_all(class_=lambda x: x and ("product-grid-item" in x or "type-product" in x))
 
     base_url = "https://pcmodnepal.com"

@@ -17,15 +17,23 @@ import re
 import asyncio
 import time
 import random
-from app.core.models import Product
+from app.schemas.models import Product
 from typing import Optional, Union, List
-from app.make_request import send_request
+from app.hybrid_http_client import send_request
+   
 
 _last_request = 0
 _lock = asyncio.Lock()
-async def qualitycomputer_scraper(Product: str) -> Optional[Union[Product,List[Product]]]:
+async def qualitycomputer_scraper(product: str,page_number: int=1,order: str="price-asc") -> Optional[Union[Product,List[Product]]]:
     global _last_request
-
+    order=order.lower()
+    order_options={
+        "price-asc": "lis_prce asc",
+        "price-desc": "lis_prce desc",
+        "relevance" : "create_date desc",
+        "rating-asc" : "create_date desc",
+        "rating-desc" : "create_date desc"
+    }
     async with _lock:
         now = time.monotonic()
         delay = 2 + abs(random.random()) - (now - _last_request)
@@ -34,16 +42,12 @@ async def qualitycomputer_scraper(Product: str) -> Optional[Union[Product,List[P
             await asyncio.sleep(delay)
             
         _last_request = time.monotonic()
-
-    page_number = 1
     url=f"https://qualitycomputer.com.np/shop/page/{page_number}"
     params={
-        # "order": "list_price asc",
-        "search": Product,
+        "order": order_options.get(order),
+        "search": product,
     }
     html_file=await send_request(url=url, method="GET", params=params)
-    with open("debug.html", "w", encoding="utf-8") as f:
-        f.write(str(html_file))
     return qualitycomputer_parser(html_content=html_file)
 
 def qualitycomputer_parser(html_content: str) -> Optional[Union[Product, List[Product]]]:

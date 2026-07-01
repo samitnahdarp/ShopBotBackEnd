@@ -8,7 +8,6 @@ from seleniumbase import SB
 
 executor = ThreadPoolExecutor(max_workers=3)
 
-# fallback for detection of recaptacha
 def _selenium_request(
     url: str,
     method: str = "GET",
@@ -57,15 +56,15 @@ async def send_request(
 ) -> str:
 
     method = method.upper()
+    header={
+    "User-Agent": "Mozilla/5.0"
+    }
 
     try:
-        async with httpx.AsyncClient(
-            timeout=30,
-            follow_redirects=True,
-        ) as client:
+        async with httpx.AsyncClient(timeout=15,follow_redirects=True,) as client:
 
             if method == "GET":
-                response = await client.get(url, params=params)
+                response = await client.get(url, params=params,headers=header)
 
             elif method == "POST":
                 response = await client.post(url, json=json_data)
