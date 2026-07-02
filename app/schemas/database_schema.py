@@ -55,6 +55,34 @@ def create_schema():
                             image TEXT
                         );
 
+                        ------------------------------------------------------------
+                        -- TRACKED PRODUCT TABLES
+                        ------------------------------------------------------------
+                        CREATE TABLE IF NOT EXISTS tracked_product (
+                            tracked_product_id SERIAL PRIMARY KEY,
+                            product_link TEXT NOT NULL UNIQUE,
+                            product_name VARCHAR(255) NOT NULL,
+                            latest_price NUMERIC(10,2),
+                            created_at TIMESTAMP DEFAULT NOW()
+                        );
+
+                        ------------------------------------------------------------
+                        -- USER TRACKED PRODUCT TABLES
+                        ------------------------------------------------------------
+                        CREATE TABLE IF NOT EXISTS user_tracked_product (
+                            user_id INT NOT NULL REFERENCES profile(user_id) ON DELETE CASCADE,
+                            tracked_product_id INT NOT NULL REFERENCES tracked_product(tracked_product_id) ON DELETE CASCADE,
+                            PRIMARY KEY (user_id, tracked_product_id)
+                        );
+
+                        ------------------------------------------------------------
+                        -- TRACKED PRODUCT PRICE HISTORY TABLES
+                        ------------------------------------------------------------
+                        CREATE TABLE IF NOT EXISTS tracked_product_price_history (
+                            tracked_product_id INT NOT NULL REFERENCES tracked_product(tracked_product_id) ON DELETE CASCADE,
+                            price NUMERIC(10,2) NOT NULL,
+                            recorded_at DATE DEFAULT NOW()
+                        ); 
                         """
                 );
             conn.commit()

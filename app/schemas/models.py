@@ -37,3 +37,15 @@ class ChangePasswordRequest(BaseModel):
     old_password: str
     new_password: str
     session_id: str
+
+class TrackProductRequest(BaseModel):
+    session_id: str
+    product_link: str
+    product_name: str
+    latest_price: str
+
+class UnTrackProductRequest(BaseModel):
+    session_id: str
+    product_link: str
+class GetProfileRequest(BaseModel):
+    session_id: str
