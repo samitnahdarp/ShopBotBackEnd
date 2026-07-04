@@ -5,7 +5,7 @@ def create_schema():
     with pool.connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                        DROP SCHEMA IF EXISTS app CASCADE;
+                        --DROP SCHEMA IF EXISTS app CASCADE;
 
                         CREATE SCHEMA IF NOT EXISTS app;
                         
@@ -79,9 +79,11 @@ def create_schema():
                         -- TRACKED PRODUCT PRICE HISTORY TABLES
                         ------------------------------------------------------------
                         CREATE TABLE IF NOT EXISTS tracked_product_price_history (
+                            price_history_id SERIAL PRIMARY KEY,
                             tracked_product_id INT NOT NULL REFERENCES tracked_product(tracked_product_id) ON DELETE CASCADE,
                             price NUMERIC(10,2) NOT NULL,
-                            recorded_at DATE DEFAULT NOW()
+                            discount NUMERIC(10,2) DEFAULT 0,
+                            recorded_at TIMESTAMP DEFAULT NOW()
                         ); 
                         """
                 );

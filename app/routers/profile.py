@@ -63,24 +63,24 @@ def track_product(request: TrackProductRequest, conn=Depends(get_db_connection))
             else:
                 # Insert the product into the tracked_product
                 cur.execute(
-                    "INSERT INTO app.tracked_product (product_link, product_name, latest_price) VALUES ( %s, %s,)",
+                    "INSERT INTO app.tracked_product (product_link, product_name, latest_price) VALUES ( %s, %s, %s)",
                     (request.product_link, request.product_name,request.latest_price)
                 )
                 # Insert the user and product into the user_tracked_product
                 cur.execute(
-                    """INSERT INTO app.user_tracked_product (user_id, tracked_product_id) VALUES (
-                    (SELECT user_id FROM app.profile WHERE username = (
-                        SELECT username FROM app.session WHERE session_id = %s
-                    ),
-                    (SELECT tracked_product_id FROM tracked_product where product_link=%s)
+                    """INSERT INTO app.user_tracked_product (user_id, tracked_product_id) VALUES 
+                    (
+                        (SELECT user_id FROM app.profile WHERE username = (SELECT username FROM app.session WHERE session_id = %s)),
+                        (SELECT tracked_product_id FROM app.tracked_product where product_link=%s)
                     )""",
                     (request.session_id, request.product_link)
                 )
                 # Add the current price as the latest price for the tracking
                 cur.execute(
-                    """INSERT INTO app.tracked_product_price_history (tracked_product_id, price) VALUES (
-                    (SELECT tracked_product_id FROM app.tracked_product where product_link=%s),
-                    %s
+                    """INSERT INTO app.tracked_product_price_history (tracked_product_id, price) VALUES 
+                    (
+                        (SELECT tracked_product_id FROM app.tracked_product where product_link=%s),
+                        %s
                     )""",
                     (request.product_link,request.latest_price)
                 )
@@ -96,24 +96,30 @@ def untrack_product(request: UnTrackProductRequest, conn=Depends(get_db_connecti
             # DELETE THE RECORD FROM user_tracked_product
             cur.execute(
                 """
-                DELETE FROM app.user_tracked_product WHERE user_id=
-                SELECT user_id FROM app.profile WHERE username = (
-                    SELECT username FROM app.session WHERE session_id = %s) AND
-                tracked_product_id=(
-                SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s
-                )              
+                    DELETE FROM app.user_tracked_product WHERE user_id=
+                    (SELECT user_id FROM app.profile WHERE username = 
+                    (SELECT username FROM app.session WHERE session_id = %s) )
+                    AND
+                    tracked_product_id=(SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)              
                 """,
                 (request.session_id,request.product_link)
             )
             conn.commit()
             # check if product isn't being tracked by any users
             cur.execute(
-                "SELECT user_id where tracked_product_id=(SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)",
+                """
+                    SELECT user_id FROM app.user_tracked_product WHERE tracked_product_id=
+                    (SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)
+                """,
                 (request.product_link,)
             )
             if not cur.fetchone():
                 cur.execute(
-                    "DELETE FROM app.tracked_product WHERE tracked_product_id=(SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)",
+                    """
+                        DELETE FROM app.tracked_product 
+                        WHERE tracked_product_id=
+                        (SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)
+                    """,
                      (request.product_link,)
                 )
             conn.commit()
