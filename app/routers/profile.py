@@ -16,19 +16,28 @@ def get_profile(request: GetProfileRequest, conn=Depends(get_db_connection)):
             )
             result = cur.fetchone()
             cur.execute(
-                "SELECT row_to_json(t) FROM (SELECT product_name, product_link, latest_price FROM app.tracked_product WHERE username IN (SELECT username FROM app.session WHERE session_id = %s)) t",
+                "SELECT row_to_json(t) FROM (SELECT tracked_product_id FROM app.user_tracked_product WHERE user_id = (SELECT user_id FROM app.profile WHERE username=(SELECT username FROM app.session WHERE session_id = %s))) t",
                 (request.session_id,)
             )
             tracked_products = cur.fetchall()
             for i in range(len(tracked_products)):
                 tracked_products[i] = tracked_products[i][0]
                 cur.execute(
-                    "SELECT row_to_json(t) FROM (SELECT price, recorded_at FROM app.product_price_history WHERE product_link = %s ORDER BY recorded_at DESC) t",
-                    (tracked_products[i]['product_link'],)
+                    "SELECT row_to_json(t) FROM (SELECT price, recorded_at FROM app.tracked_product_price_history WHERE tracked_product_id = %s ORDER BY recorded_at DESC) t",
+                    (tracked_products[i]['tracked_product_id'],)
                 )
                 price_history = cur.fetchone()
+                cur.execute(
+                    """
+                        SELECT product_name,product_link FROM app.tracked_product WHERE tracked_product_id=%s
+                    """,
+                    (tracked_products[i]['tracked_product_id'],)
+                )
+                product_info=cur.fetchone()
+                tracked_products[i]['product_name']=product_info[0]
+                tracked_products[i]['product_link']=product_info[1]
                 if price_history:
-                    tracked_products[i]['price_history'] = price_history[1:]
+                    tracked_products[i]['price_history'] = price_history[:]
                 else:
                     tracked_products[i]['price_history'] = []
         if result:
