@@ -15,12 +15,16 @@ async def search_items(request: Search, conn=Depends(get_db_connection)):
     filters=request.filters
     page_number=request.page_number
     with conn.cursor() as cursor:
+
         # Check if the product has already been searched
         cursor.execute(
             "SELECT * FROM app.product_search WHERE searched_product_name = %s",
             (product,)
         )
-        if cursor.fetchone():
+        
+        row = cursor.fetchone()
+        if row:
+            product_search_id = row[0]
             cursor.execute(
                 """
                 SELECT row_to_json(p)
@@ -28,29 +32,30 @@ async def search_items(request: Search, conn=Depends(get_db_connection)):
                     SELECT
                         name, rating, price, description, link, image
                     FROM app.scraped_product
-                    WHERE product_search_id = (
-                        SELECT product_search_id
-                        FROM app.product_search
-                        WHERE searched_product_name = %s
-                        AND page_number = %s
-                        AND filters = %s
-                    )
+                    WHERE product_search_id = %s
+                        AND 
+                        page_number = %s
+                        AND 
+                        filters = %s
                 ) p;
-                """,(product, request.page_number, request.filters)
+                """,(product_search_id, request.page_number, request.filters)
             )
-            data=cursor.fetchall()
+            
+            if cursor.fetchone():
+                data=cursor.fetchall()
+                return {
+                    "status": "executed",
+                    "_product_id": product_search_id,
+                    "products": data
+                }
+        else:    
+            # If the product has not been searched, insert it into the product_search table
+            cursor.execute(
+                "INSERT INTO app.product_search (searched_product_name) VALUES (%s)",
+                (product,)
+            )
             conn.commit()
-            return {
-                "status": "executed",
-                "_product_id": None,
-                "products": data
-            }
-        # If the product has not been searched, insert it into the product_search table
-        cursor.execute(
-            "INSERT INTO app.product_search (searched_product_name) VALUES (%s)",
-            (product,)
-        )
-        conn.commit()
+    
         cursor.execute("""
             SELECT product_search_id
             FROM app.product_search
@@ -71,9 +76,11 @@ async def search_items(request: Search, conn=Depends(get_db_connection)):
     pcmodnepal_data = pcmodnepal_task.result()
     qualitycomputer_data = qualitycomputer_task.result()
 
+    # commit to database
     commit_data(hukut_data,request,conn=conn)
     commit_data(pcmodnepal_data,request,conn=conn)
     commit_data(qualitycomputer_data,request,conn=conn)
+    # get and return the data
     data=None
     with conn.cursor() as cursor:
         cursor.execute(
@@ -98,8 +105,6 @@ async def search_items(request: Search, conn=Depends(get_db_connection)):
             """,(_product_id, filters, filters, filters, filters,)
         )
         data=cursor.fetchall()
-        conn.commit()
-
     return {
         "status": "executed",
         "_product_id": _product_id,

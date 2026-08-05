@@ -6,7 +6,7 @@ def validate_session(session_id: str):
     with pool.connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                SELECT * FROM app.session
+                SELECT * FROM app.active_session
                 WHERE session_id = %s;
             """, (session_id,))
             session = cur.fetchone()
@@ -20,7 +20,7 @@ def get_session() -> str:
             while True:
                 new_session_id = str(uuid.uuid4())
                 cur.execute(
-                    "SELECT session_id FROM app.session WHERE session_id = %s",
+                    "SELECT session_id FROM app.active_session WHERE session_id = %s",
                     (new_session_id,)
                 )
                 if not cur.fetchone():

@@ -23,12 +23,12 @@ def login(login_request: LoginRequest, conn=Depends(get_db_connection)):
 
         if bcrypt.checkpw( login_request.password.encode("utf-8"), stored_hash.encode("utf-8")):
             cur.execute(
-                "DELETE FROM app.session WHERE username = %s",
+                "DELETE FROM app.active_session WHERE username = %s",
                 (login_request.username,)
             )
             session_id = get_session()
             cur.execute(
-                "INSERT INTO app.session (session_id, username) VALUES (%s, %s)",
+                "INSERT INTO app.active_session (session_id, username) VALUES (%s, %s)",
                 (session_id, login_request.username)
             )
             conn.commit()
@@ -69,7 +69,7 @@ def logout(logout_request: LogoutRequest, conn=Depends(get_db_connection)):
         raise HTTPException(status_code=401, detail="Invalid session ID")
     with conn.cursor() as cur:
         cur.execute(
-            "DELETE FROM app.session WHERE session_id = %s",
+            "DELETE FROM app.active_session WHERE session_id = %s",
             (logout_request.session_id,)
         )
         conn.commit()

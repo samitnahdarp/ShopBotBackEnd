@@ -11,16 +11,7 @@ def create_schema():
                         
                         SET search_path TO app;
 
-                        ------------------------------------------------------------
-                        -- HANDLING sessions
-                        ------------------------------------------------------------
-                        CREATE UNLOGGED TABLE IF NOT EXISTS session (
-                            session_id UUID PRIMARY KEY,
-                            username VARCHAR(255) NOT NULL,
-                            created_at TIMESTAMP DEFAULT NOW()
-                        );      
-
-                        ------------------------------------------------------------
+                            ------------------------------------------------------------
                         -- PROFILE TABLE
                         ------------------------------------------------------------
                         CREATE TABLE IF NOT EXISTS profile (
@@ -29,6 +20,15 @@ def create_schema():
                             password_hash CHAR(60) NOT NULL,
                             created_at TIMESTAMP DEFAULT NOW()
                         );
+
+                        ------------------------------------------------------------
+                        -- HANDLING sessions
+                        ------------------------------------------------------------
+                        CREATE UNLOGGED TABLE IF NOT EXISTS active_session (
+                            session_id UUID PRIMARY KEY,
+                            username VARCHAR(255) NOT NULL REFERENCES profile(username),
+                            created_at TIMESTAMP DEFAULT NOW()
+                        );      
 
                         ------------------------------------------------------------
                         -- PRODUCT SEARCH TABLE
@@ -44,14 +44,14 @@ def create_schema():
                         ------------------------------------------------------------
                         CREATE TABLE IF NOT EXISTS scraped_product (
                             scraped_product_id SERIAL PRIMARY KEY,
-                            product_search_id INT NOT NULL REFERENCES product_search(product_search_id) ON DELETE CASCADE,
+                            product_search_id INT REFERENCES product_search(product_search_id) ON DELETE CASCADE,
                             page_number INT NOT NULL,
                             filters VARCHAR(50) NOT NULL,
-                            name VARCHAR(255),
+                            name VARCHAR(511),
                             rating FLOAT,
                             price NUMERIC(10,2),
                             description TEXT,
-                            link TEXT,
+                            link TEXT UNIQUE,
                             image TEXT
                         );
 
@@ -60,8 +60,8 @@ def create_schema():
                         ------------------------------------------------------------
                         CREATE TABLE IF NOT EXISTS tracked_product (
                             tracked_product_id SERIAL PRIMARY KEY,
-                            product_link TEXT NOT NULL UNIQUE,
-                            product_name VARCHAR(255) NOT NULL,
+                            product_link TEXT NOT NULL UNIQUE REFERENCES scraped_product(link),
+                            product_name VARCHAR(511) NOT NULL,
                             latest_price NUMERIC(10,2),
                             created_at TIMESTAMP DEFAULT NOW()
                         );
