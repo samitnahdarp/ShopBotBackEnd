@@ -5,7 +5,7 @@ def cleanup_sessions():
         with conn.cursor() as cur:
             cur.execute("""
                 DELETE FROM app.active_session
-                WHERE created_at < NOW();
+                WHERE created_at < NOW() - INTERVAL '30 minutes';
             """)
             conn.commit()
     print("INFO:\tExpired sessions cleaned up.")
