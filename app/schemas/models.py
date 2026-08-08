@@ -33,7 +33,6 @@ class LogoutRequest(BaseModel):
     session_id: str
 
 class ChangePasswordRequest(BaseModel):
-    username: str
     old_password: str
     new_password: str
     session_id: str
@@ -41,8 +40,6 @@ class ChangePasswordRequest(BaseModel):
 class TrackProductRequest(BaseModel):
     session_id: str
     product_link: str
-    product_name: str
-    latest_price: str
 
 class UnTrackProductRequest(BaseModel):
     session_id: str

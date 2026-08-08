@@ -81,8 +81,8 @@ def change_password(change_password_request: ChangePasswordRequest, conn=Depends
     if validate_session(change_password_request.session_id):
         with conn.cursor() as cur:
             cur.execute(
-                "SELECT password_hash FROM app.profile WHERE username = %s",
-                (change_password_request.username,)
+                "SELECT password_hash FROM app.profile WHERE username = (SELECT username FROM app.active_session WHERE session_id = %s)",
+                (change_password_request.session_id,)
             )
             result = cur.fetchone()
 
@@ -91,15 +91,15 @@ def change_password(change_password_request: ChangePasswordRequest, conn=Depends
 
             stored_hash = result[0]
 
-            if bcrypt.checkpw(change_password_request.old_password.encode("utf-8"), stored_hash):
+            if bcrypt.checkpw(change_password_request.old_password.encode("utf-8"), stored_hash.encode("utf-8")):
                 new_password_hash = bcrypt.hashpw(
                     change_password_request.new_password.encode("utf-8"),
                     bcrypt.gensalt()
                 ).decode("utf-8")
 
                 cur.execute(
-                    "UPDATE app.profile SET password_hash = %s WHERE username = %s",
-                    (new_password_hash, change_password_request.username)
+                    "UPDATE app.profile SET password_hash = %s WHERE username = (SELECT username FROM app.active_session WHERE session_id = %s)",
+                    (new_password_hash, change_password_request.session_id)
                 )
                 conn.commit()
                 return {"status": True, "message": "Password changed successfully"}

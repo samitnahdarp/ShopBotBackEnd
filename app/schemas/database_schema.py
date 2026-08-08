@@ -63,6 +63,7 @@ def create_schema():
                             product_link TEXT NOT NULL UNIQUE REFERENCES scraped_product(link),
                             product_name VARCHAR(511) NOT NULL,
                             latest_price NUMERIC(10,2),
+                            product_image TEXT,
                             created_at TIMESTAMP DEFAULT NOW()
                         );
 

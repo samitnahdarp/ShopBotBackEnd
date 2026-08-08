@@ -12,12 +12,12 @@ def get_profile(request: GetProfileRequest, conn=Depends(get_db_connection)):
         raise HTTPException(status_code=401, detail="Invalid session ID")
     with conn.cursor() as cur:
         cur.execute(
-            " SELECT row_to_json(t) FROM (SELECT user_id, username FROM app.profile WHERE username IN (SELECT username FROM app.session WHERE session_id = %s)) t",
+            " SELECT row_to_json(t) FROM (SELECT user_id, username FROM app.profile WHERE username IN (SELECT username FROM app.active_session WHERE session_id = %s)) t",
             (request.session_id,) 
         )
         result = cur.fetchone()
         cur.execute(
-            "SELECT row_to_json(t) FROM (SELECT tracked_product_id FROM app.user_tracked_product WHERE user_id = (SELECT user_id FROM app.profile WHERE username=(SELECT username FROM app.session WHERE session_id = %s))) t",
+            "SELECT row_to_json(t) FROM (SELECT tracked_product_id FROM app.user_tracked_product WHERE user_id = (SELECT user_id FROM app.profile WHERE username=(SELECT username FROM app.active_session WHERE session_id = %s))) t",
             (request.session_id,)
         )
         tracked_products = cur.fetchall()
@@ -30,13 +30,14 @@ def get_profile(request: GetProfileRequest, conn=Depends(get_db_connection)):
             price_history = cur.fetchone()
             cur.execute(
                 """
-                    SELECT product_name,product_link FROM app.tracked_product WHERE tracked_product_id=%s
+                    SELECT product_name,product_link,product_image FROM app.tracked_product WHERE tracked_product_id=%s
                 """,
                 (tracked_products[i]['tracked_product_id'],)
             )
             product_info=cur.fetchone()
             tracked_products[i]['product_name']=product_info[0]
             tracked_products[i]['product_link']=product_info[1]
+            tracked_products[i]['product_image']=product_info[2]
             if price_history:
                 tracked_products[i]['price_history'] = price_history[:]
             else:
@@ -58,7 +59,7 @@ def track_product(request: TrackProductRequest, conn=Depends(get_db_connection))
         cur.execute( "SELECT tracked_product_id FROM app.tracked_product WHERE product_link = %s", (request.product_link,) )
         if id := cur.fetchone():
             # checck if the user is already tracking this product
-            cur.execute( "SELECT user_id FROM app.user_tracked_product WHERE user_id = (SELECT user_id FROM app.profile WHERE username = (SELECT username FROM app.session WHERE session_id = %s)) AND tracked_product_id = %s", (request.session_id, id[0]) )
+            cur.execute( "SELECT user_id FROM app.user_tracked_product WHERE user_id = (SELECT user_id FROM app.profile WHERE username = (SELECT username FROM app.active_session WHERE session_id = %s)) AND tracked_product_id = %s", (request.session_id, id[0]) )
             if cur.fetchone(): 
                 return {"status": False, "message": "Product is already being tracked by this user."}
             # If the product is already being tracked by another user
@@ -69,16 +70,20 @@ def track_product(request: TrackProductRequest, conn=Depends(get_db_connection))
                 return {"status": True, "message": "Product is now being tracked by this user."}
         # If the product is not being tracked by any user
         else:
+            # Check if the product exists in the scraped_product table
+            cur.execute( "SELECT * FROM app.scraped_product WHERE link = %s", (request.product_link,) )
+            if not cur.fetchone():
+                raise HTTPException(status_code=404, detail="Product not found in the scraped products.")
             # Insert the product into the tracked_product
             cur.execute(
-                "INSERT INTO app.tracked_product (product_link, product_name, latest_price) VALUES ( %s, %s, %s)",
-                (request.product_link, request.product_name,request.latest_price)
+                "INSERT INTO app.tracked_product (product_link, product_name, latest_price, product_image) VALUES ( %s, (SELECT name FROM app.scraped_product WHERE link = %s) , (SELECT price FROM app.scraped_product WHERE link = %s), (SELECT image FROM app.scraped_product WHERE link = %s) )",
+                (request.product_link, request.product_link, request.product_link, request.product_link)
             )
             # Insert the user and product into the user_tracked_product
             cur.execute(
                 """INSERT INTO app.user_tracked_product (user_id, tracked_product_id) VALUES 
                 (
-                    (SELECT user_id FROM app.profile WHERE username = (SELECT username FROM app.session WHERE session_id = %s)),
+                    (SELECT user_id FROM app.profile WHERE username = (SELECT username FROM app.active_session WHERE session_id = %s)),
                     (SELECT tracked_product_id FROM app.tracked_product where product_link=%s)
                 )""",
                 (request.session_id, request.product_link)
@@ -88,9 +93,9 @@ def track_product(request: TrackProductRequest, conn=Depends(get_db_connection))
                 """INSERT INTO app.tracked_product_price_history (tracked_product_id, price) VALUES 
                 (
                     (SELECT tracked_product_id FROM app.tracked_product where product_link=%s),
-                    %s
+                    (SELECT price FROM app.scraped_product WHERE link = %s)
                 )""",
-                (request.product_link,request.latest_price)
+                (request.product_link, request.product_link)
             )
         conn.commit()
         return {"status": True, "message": "Product tracked successfully."}
@@ -100,12 +105,20 @@ def untrack_product(request: UnTrackProductRequest, conn=Depends(get_db_connecti
     if not validate_session(request.session_id):
         raise HTTPException(status_code=401, detail="Invalid session ID")
     with conn.cursor() as cur:
+        # check if the product exists in the tracked_product table
+        cur.execute(
+            "SELECT tracked_product_id FROM app.tracked_product WHERE product_link = %s",
+            (request.product_link,)
+        )
+        tracked_product_id = cur.fetchone()
+        if not tracked_product_id:
+            raise HTTPException(status_code=404, detail="Product not found in tracked products.")
         # DELETE THE RECORD FROM user_tracked_product
         cur.execute(
             """
                 DELETE FROM app.user_tracked_product WHERE user_id=
                 (SELECT user_id FROM app.profile WHERE username = 
-                (SELECT username FROM app.session WHERE session_id = %s) )
+                (SELECT username FROM app.active_session WHERE session_id = %s) )
                 AND
                 tracked_product_id=(SELECT tracked_product_id FROM app.tracked_product WHERE product_link= %s)              
             """,
