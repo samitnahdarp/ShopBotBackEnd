@@ -51,7 +51,7 @@ def create_schema():
                             rating FLOAT,
                             price NUMERIC(10,2),
                             description TEXT,
-                            link TEXT UNIQUE,
+                            link TEXT NOT NULL,
                             image TEXT
                         );
 
@@ -60,7 +60,7 @@ def create_schema():
                         ------------------------------------------------------------
                         CREATE TABLE IF NOT EXISTS tracked_product (
                             tracked_product_id SERIAL PRIMARY KEY,
-                            product_link TEXT NOT NULL UNIQUE REFERENCES scraped_product(link),
+                            product_link TEXT NOT NULL UNIQUE,
                             product_name VARCHAR(511) NOT NULL,
                             latest_price NUMERIC(10,2),
                             product_image TEXT,
