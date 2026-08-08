@@ -4,7 +4,7 @@ def cleanup_sessions():
     with pool.connection() as conn:
         with conn.cursor() as cur:
             cur.execute("""
-                DELETE FROM app.session
+                DELETE FROM app.active_session
                 WHERE created_at < NOW();
             """)
             conn.commit()
